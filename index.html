@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Claude Archive Viewer v3</title>
+
+<style>
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+  display:flex;
+  height:100vh;
+  background:#f7f7f8;
+}
+
+/* 左侧列表 */
+#left{
+  width:26%;
+  background:#fff;
+  border-right:1px solid #e6e6e6;
+  overflow-y:auto;
+  padding:10px;
+}
+
+.item{
+  padding:10px;
+  cursor:pointer;
+  border-radius:8px;
+}
+
+.item:hover{
+  background:#f2f2f2;
+}
+
+/* 右侧内容 */
+#right{
+  flex:1;
+  padding:24px;
+  overflow-y:auto;
+}
+
+.title{
+  font-size:18px;
+  margin-bottom:20px;
+  color:#222;
+}
+
+/* 消息气泡 */
+.msg{
+  max-width:70%;
+  padding:10px 14px;
+  margin:10px 0;
+  border-radius:14px;
+  line-height:1.5;
+  white-space:pre-wrap;
+  font-size:14px;
+}
+
+.user{
+  margin-left:auto;
+  background:#ffedd5;
+}
+
+.ai{
+  background:#ffffff;
+  border:1px solid #e8e8e8;
+}
+
+/* thinking */
+.thinking{
+  font-size:12px;
+  color:#888;
+  margin:4px 0 10px 0;
+  padding-left:10px;
+  border-left:2px solid #ddd;
+}
+</style>
+</head>
+
+<body>
+
+<div id="left"></div>
+<div id="right">请选择聊天</div>
+
+<input type="file" id="file"
+ style="position:fixed;top:10px;right:10px;">
+
+<script>
+
+let data = [];
+
+/* 加载JSON */
+document.getElementById('file').addEventListener('change', function(e){
+  const reader = new FileReader();
+
+  reader.onload = function(evt){
+    try{
+      const raw = JSON.parse(evt.target.result);
+
+      // 🔥 兼容数组 / 包裹结构
+      if(Array.isArray(raw)){
+        data = raw;
+      }else if(raw.conversations){
+        data = raw.conversations;
+      }else if(raw.data){
+        data = raw.data;
+      }else{
+        data = [raw];
+      }
+
+      renderList();
+
+    }catch(err){
+      alert("JSON解析失败");
+      console.error(err);
+    }
+  };
+
+  reader.readAsText(e.target.files[0]);
+});
+
+
+/* ⭐ 核心：过滤空chat */
+function getValidData(){
+  return data.filter(c =>
+    c &&
+    c.name &&
+    Array.isArray(c.chat_messages) &&
+    c.chat_messages.length > 0
+  );
+}
+
+
+/* 左侧列表 */
+function renderList(){
+  const left = document.getElementById('left');
+  left.innerHTML = '';
+
+  const validData = getValidData();
+
+  validData.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerText = c.name || ('Chat ' + i);
+
+    div.onclick = () => renderChat(validData[i]);
+
+    left.appendChild(div);
+  });
+}
+
+
+/* 右侧聊天 */
+function renderChat(chat){
+  const right = document.getElementById('right');
+
+  let html = `<div class="title">💬 ${chat.name}</div>`;
+
+  chat.chat_messages.forEach(m => {
+
+    // 💭 thinking（不重复）
+    if(m.content){
+      m.content.forEach(c => {
+        if(c.type === 'thinking' && c.thinking){
+          html += `<div class="thinking">💭 ${c.thinking}</div>`;
+        }
+      });
+    }
+
+    if(m.sender === 'human'){
+      html += `<div class="msg user">你：\n${m.text || ''}</div>`;
+    }else{
+      html += `<div class="msg ai">Claude：\n${m.text || ''}</div>`;
+    }
+
+  });
+
+  right.innerHTML = html;
+}
+
+</script>
+
+</body>
+</html>
